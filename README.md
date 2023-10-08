@@ -1,7 +1,7 @@
 # lcEDA2KiCAD
 Migrate data from LcEDA to KiCAD by perl scripts
 
-Scripts files is simple and short and useful. 
+Script files is simple and short and useful. 
 Running without arguments will give some hints.
 Only symbols are supported now. Footprints, schematics and PCB are not supported (I think that footprints are already almost all standardized, and automatic migration will not be good for latter two). 
 
