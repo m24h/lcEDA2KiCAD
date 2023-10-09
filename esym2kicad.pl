@@ -12,7 +12,7 @@ foreach (@$symb) {
   push @{$parts[-1]}, $_ if $#parts>=0;
 }
 #get symbol name (but there's only part name in file, so the first part name is adopted)
-my $name=$parts[0]->[0]->[1]=~s/[\-#\$_\.:,]\d*$//r;
+my $name=$parts[0]->[0]->[1]=~s/[\-#\$_\.:,\]\d*$//r;
 unless ($#ARGV>0 && $ARGV[0] eq '-') {
   $#ARGV>0 &&  (open STDOUT,">$ARGV[1]" or die "Failed to open '$ARGV[1]' for writing\n") or
   open STDOUT, ">$name.kicad_sym" or
