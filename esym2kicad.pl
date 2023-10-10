@@ -66,7 +66,7 @@ EOF
       my ($c,$d)=($x1*$x1+$y1*$y1-$x2*$x2-$y2*$y2, $x1*$x1+$y1*$y1-$x3*$x3-$y3*$y3);
       my ($x0,$y0)=(-($y13*$c+$y21*$d)/$b/2, ($x21*$d+$x13*$c)/$b/2);
       my ($s1,$s3,$pi2)=(atan2($y1-$y0,$x1-$x0), atan2($y3-$y0,$x3-$x0), 4*atan2(1,0));
-      my $ang=$a>0?($s3-$s1):($s1-$s2); $ang+=$pi2 if ($ang<0); #CCW running angle
+      my $ang=$a>0?($s3-$s1):($s1-$s3); $ang+=$pi2 if ($ang<0); #CCW running angle
       if ($ang>3.14) { # have to split it
         my $r=sqrt(($x1-$x0)*($x1-$x0)+($y1-$y0)*($y1-$y0));
         my ($x4,$y4)=($x0+$r*cos($s1+$ang/2), $y0+$r*sin($s1+$ang/2));
