@@ -47,6 +47,14 @@ while(my @row = $sth->fetchrow_array()) {
 	print F $row[1];
 	close F; 
 }
+# resources
+$sth=$dbh->prepare("SELECT hash,dataStr from resources") and $sth->execute()>=0 or  die "Failed to extract resources data from file '$ARGV[0]': ".DBI::errstr."\n";
+while(my @row = $sth->fetchrow_array()) {
+	next unless $row[0] && $row[1];
+	next unless open F, ">$row[0].rc";
+	print F $row[1];
+	close F; 
+}
 $sth->finish();
 # Devices
 my $dev={};
@@ -60,5 +68,6 @@ $sth->finish();
 open F, ">devices.json";
 print F to_json($dev,{'indent'=>1});
 close F;
+
 #all done
 $dbh->disconnect();
