@@ -9,7 +9,7 @@ print  <<"EOF";
 (kicad_symbol_lib (version 20220914) (generator makekicadlib_pl)
 EOF
 foreach (grep {!-d $_ && -e $_ && !/^\./ } glob join(' ',@ARGV[1..$#ARGV])) {
-	print STDERR "processing $_\n";
+	print STDERR "Load $_\n";
 	next unless open T, "<$_";
 	$_=<T>;
 	close T;

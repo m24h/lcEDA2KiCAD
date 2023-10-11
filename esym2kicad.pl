@@ -13,26 +13,32 @@ foreach (@$symb) {
   push @{$parts[-1]}, $_ if $#parts>=0;
 }
 #["FONTSTYLE","st4",null,"#6666FF","Times new roman",15,0,0,0,null,1,0]
-my %fonts=map {$_->[1] => '(font '
-                              .($_->[5] && ' (size '.($_->[5]*0.254).' '.($_->[5]*0.254).')' || '')
+my %fonts=map {$_->[1] => '(font'
+                              .($_->[5] && ' (size '.($_->[5]*0.127).' '.($_->[5]*0.127).')' || '')
                               .($_->[7] && ' bold' || ''). ($_->[6] && ' italic' || '')
                               .($_->[3]=~/#([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])/i && " (color ${\hex($1)} ${\hex($2)} ${\hex($3)} 1)" || '').')'
-                              .' (justify '.(defined($_->[11]) && (' left', '', ' right')[$_->[11]] || '').(defined($_->[10]) && (' top', '', ' bottom')[$_->[10]] || '').')'
+                              .' (justify '.(defined($_->[11]) && (' left', '', ' right')[$_->[11]] || ' left').(defined($_->[10]) && (' top', '', ' bottom')[$_->[10]] || ' bottom').')'
                      } grep {$_->[0] eq 'FONTSTYLE'} @$symb;
 #["LINESTYLE","st19",null,3,"#330033",null]
-my %linestyles=map {$_->[1] => '(stroke (width '. ($_->[5]*0.254 || 0).') (type '.(defined($_->[3]) && qw(solid dash dot dash_dot)[$_->[3]] || 'default').')'
+my %linestyles=map {$_->[1] => '(stroke'. (defined($_->[5]) && '(width '.$_->[5]*0.254.')' || '').' (type '.(defined($_->[3]) && qw(solid dash dot dash_dot)[$_->[3]] || 'default').')'
                                                   .($_->[2]=~/#([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])/i && " (color ${\hex($1)} ${\hex($2)} ${\hex($3)} 1)" || '').')'
                                                   .($_->[4]=~/#([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])/ && " (fill (type color) (color ${\hex($1)} ${\hex($2)} ${\hex($3)} 1))" || ' (fill (type none))')
                           } grep {$_->[0] eq 'LINESTYLE'} @$symb;
 #get symbol name
 my $name=(map {$_->[4]} grep {$_->[0] eq 'ATTR' && $_->[3] eq 'Symbol' } @$symb)[0]
                   || $parts[0]->[0]->[1]=~s/[\-#\$_\.:,]\d*$//r;
+$name=~tr/\*\|\"\?\/\\\&;\<\> /_/;
 my $ofname=$#ARGV>0 && $ARGV[1] || "$name.kicad_sym";
 die "Failed to open '$ofname' for writing\n" unless open STDOUT, ">$ofname";
 #start to write header
-print  <<"EOF";
+  #["ATTR","e4","e3","NAME","1",0,0,-15,-20,0,"st1",0]
+  #["ATTR","e7","e5","NUMBER","1",false,true,-60.5,44.08502,0,"st5",0]
+
+my $hide_num=(grep {$_->[0] eq 'ATTR' && $_->[3] eq 'NUMBER' && $_->[6]} @$symb, 1)? '' : '(pin_numbers hide)';
+my $hide_name=(grep {$_->[0] eq 'ATTR' && $_->[3] eq 'NAME' && $_->[6]} @$symb, 1)? '' : '(pin_names hide)';
+print  <<"EOF";  
 (kicad_symbol_lib (version 20220914) (generator esym2kicad_pl)
-  (symbol "$name" (in_bom yes) (on_board yes)
+  (symbol "$name" $hide_num $hide_name (in_bom yes) (on_board yes)
     (property "Reference" "${\map {split /\?$/, $_->[4]} grep {$_->[0] eq 'ATTR' && $_->[3] eq 'Designator' } @$symb}" (at -5.08 6.35 0)
       (effects (justify left))
     )
@@ -147,7 +153,7 @@ EOF
   } 
  
   #["PIN","e5",1,1,-70,45,10,0,null,0,0,1]
-  #["ATTR","e6","e5","NAME","VSS",false,true,-56.3,39.08502,0,"st4",0]
+  #["ATTR","e4","e3","NAME","1",0,0,-15,-20,0,"st1",0]
   #["ATTR","e7","e5","NUMBER","1",false,true,-60.5,44.08502,0,"st5",0]
   #["ATTR","e8","e5","Pin Type","IN",false,false,-70,45,0,"st2",0]
   foreach (grep {$_->[0] eq 'PIN'} @$part) {
