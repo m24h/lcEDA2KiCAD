@@ -1,11 +1,15 @@
 use DBI;
 use JSON;
-
-die "Usage: perl $0 <.eprj file name> \n\tIt will extract all Schematics/PCBs/Symbols/Footprints/Devices and save them to a new directory.\n" if $#ARGV<0;
+die <<"EOF" if $#ARGV<0;
+Usage: perl $0 <.eprj file name> <directory name, can be ignored for using the same name>
+  It will extract all Schematics/PCBs/Symbols/Footprints/Devices/Resources from input file,
+  and save them to a new directory.
+EOF
 die "Unable to find '$ARGV[0]'\n" unless -e $ARGV[0];
 $dbh=DBI->connect("DBI:SQLite:dbname=$ARGV[0]", '', '', {PrintError=>0}) or  die "Unable to connect file '$ARGV[0]': ".DBI::errstr."\n";
-$dir=$ARGV[0]=~s/\.[^\.]*$//r;
+$dir=$#ARGV>0 && $ARGV[1] || $ARGV[0]=~s/\.[^\.]*$//r;
 die "Failed to make new directory '$dir', $!\n" unless mkdir($dir) && chdir($dir);
+print STDERR "Directory '$dir' is created, which contains all output files\n";
 # Schematics
 $sth=$dbh->prepare("SELECT title,dataStr from documents where docType=1 and title is not null and title!=''") and $sth->execute()>=0 or  die "Failed to extract schematics data from file '$ARGV[0]': ".DBI::errstr."\n";
 while(my @row = $sth->fetchrow_array()) {
@@ -51,7 +55,7 @@ while(my @row = $sth->fetchrow_array()) {
 $sth=$dbh->prepare("SELECT hash,dataStr from resources") and $sth->execute()>=0 or  die "Failed to extract resources data from file '$ARGV[0]': ".DBI::errstr."\n";
 while(my @row = $sth->fetchrow_array()) {
 	next unless $row[0] && $row[1];
-	next unless open F, ">$row[0].rc";
+	next unless open F, ">$row[0].ersc";
 	print F $row[1];
 	close F; 
 }

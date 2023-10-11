@@ -1,6 +1,8 @@
 use JSON;
 my %pintypes=('IN' => 'input', 'OUT' => 'output');
-die "Usage: perl $0 <.esym file name> <output filename or - (STDOUT) or empty (use symbol name)>\n" if $#ARGV<0;
+die <<"EOF" if $#ARGV<0;
+Usage: perl $0 <.esym file name> <output filename or - (STDOUT) or empty (use symbol name)>
+EOF
 die "File '$ARGV[0]' is not found\n" unless open F, "<$ARGV[0]";
 $symb=from_json('['.join(',', <F>).']');
 close F;
@@ -10,21 +12,23 @@ foreach (@$symb) {
   push @parts, [] if $_->[0] eq 'PART';
   push @{$parts[-1]}, $_ if $#parts>=0;
 }
-#["FONTSTYLE","st4",null,null,"Times new roman",15,0,0,0,null,1,0]
-my %fonts=map {$_->[1] => $_->[5] && '(font (size '.($_->[5]*0.254).' '.($_->[5]*0.254).'))' || ''} grep {$_->[0] eq 'FONTSTYLE'} @$symb;
+#["FONTSTYLE","st4",null,"#6666FF","Times new roman",15,0,0,0,null,1,0]
+my %fonts=map {$_->[1] => '(font '
+                              .($_->[5] && ' (size '.($_->[5]*0.254).' '.($_->[5]*0.254).')' || '')
+                              .($_->[7] && ' bold' || ''). ($_->[6] && ' italic' || '')
+                              .($_->[3]=~/#([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])/i && " (color ${\hex($1)} ${\hex($2)} ${\hex($3)} 1)" || '').')'
+                              .' (justify '.(defined($_->[11]) && (' left', '', ' right')[$_->[11]] || '').(defined($_->[10]) && (' top', '', ' bottom')[$_->[10]] || '').')'
+                     } grep {$_->[0] eq 'FONTSTYLE'} @$symb;
 #["LINESTYLE","st19",null,3,"#330033",null]
-my %linestyles=map {$_->[1] => '(stroke (width '. ($_->[5]*0.254 || 0).') (type '.($_->[3] && qw(solid dash dot dash_dot)[$_->[3]] || 'default').')'
+my %linestyles=map {$_->[1] => '(stroke (width '. ($_->[5]*0.254 || 0).') (type '.(defined($_->[3]) && qw(solid dash dot dash_dot)[$_->[3]] || 'default').')'
                                                   .($_->[2]=~/#([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])/i && " (color ${\hex($1)} ${\hex($2)} ${\hex($3)} 1)" || '').')'
-                                                  .($_->[4]=~/#([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])/ && " (fill (type color) (color ${\hex($1)} ${\hex($2)} ${\hex($3)} 1))" || ' (fill (type none))')}
-                         grep {$_->[0] eq 'LINESTYLE'} @$symb;
-#get symbol name (but there's only part name in file, so the first part name is adopted)
-my $name=$parts[0]->[0]->[1]=~s/[\-#\$_\.:,]\d*$//r;
-unless ($#ARGV>0 && $ARGV[0] eq '-') {
-  $#ARGV>0 &&  (open STDOUT,">$ARGV[1]" or die "Failed to open '$ARGV[1]' for writing\n") or
-  open STDOUT, ">$name.kicad_sym" or
-  open STDOUT, '>'.($ARGV[0]=~s/\.[^\.]*$//r).'.kicad_sym'
-  or die "Failed to open '".($ARGV[0]=~s/\.[^\.]*$//r).".kicad_sym' for writing\n";
-}
+                                                  .($_->[4]=~/#([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])([0-9A-F][0-9A-F])/ && " (fill (type color) (color ${\hex($1)} ${\hex($2)} ${\hex($3)} 1))" || ' (fill (type none))')
+                          } grep {$_->[0] eq 'LINESTYLE'} @$symb;
+#get symbol name
+my $name=(map {$_->[4]} grep {$_->[0] eq 'ATTR' && $_->[3] eq 'Symbol' } @$symb)[0]
+                  || $parts[0]->[0]->[1]=~s/[\-#\$_\.:,]\d*$//r;
+my $ofname=$#ARGV>0 && $ARGV[1] || "$name.kicad_sym";
+die "Failed to open '$ofname' for writing\n" unless open STDOUT, ">$ofname";
 #start to write header
 print  <<"EOF";
 (kicad_symbol_lib (version 20220914) (generator esym2kicad_pl)
@@ -32,7 +36,7 @@ print  <<"EOF";
     (property "Reference" "${\map {split /\?$/, $_->[4]} grep {$_->[0] eq 'ATTR' && $_->[3] eq 'Designator' } @$symb}" (at -5.08 6.35 0)
       (effects (justify left))
     )
-    (property "Value" "${\map {$_->[4]} grep {$_->[0] eq 'ATTR' && $_->[3] eq 'Symbol' } @$symb}" (at -5.08 8.89 0)
+    (property "Value" "$name" (at -5.08 8.89 0)
       (effects (justify left))
     )
     (property "Footprint" "${\map {$_->[4]} grep {$_->[0] eq 'ATTR' && $_->[3] eq 'Footprint' } @$symb}" (at 0 0 0)
@@ -69,9 +73,9 @@ EOF
       my $ang=$a>0?($s3-$s1):($s1-$s3); $ang+=$pi2 if ($ang<0); #CCW running angle
       if ($ang>3.14) { # have to split it
         my $r=sqrt(($x1-$x0)*($x1-$x0)+($y1-$y0)*($y1-$y0));
-        my ($x4,$y4)=($x0+$r*cos($s1+$ang/2), $y0+$r*sin($s1+$ang/2));
-        my ($x5,$y5)=($x0+$r*cos($s1+$ang/4), $y0+$r*sin($s1+$ang/4));
-        my ($x6,$y6)=($x0+$r*cos($s3-$ang/4), $y0+$r*sin($s3-$ang/4));
+        my ($x4,$y4)=($x0+$r*cos($s1+$ang/($a>0?2:-2)), $y0+$r*sin($s1+$ang/($a>0?2:-2)));
+        my ($x5,$y5)=($x0+$r*cos($s1+$ang/($a>0?4:-4)), $y0+$r*sin($s1+$ang/($a>0?4:-4)));
+        my ($x6,$y6)=($x0+$r*cos($s3-$ang/($a>0?4:-4)), $y0+$r*sin($s3-$ang/($a>0?4:-4)));
         print <<"EOF";
       (arc (start $x1 $y1) (mid $x5 $y5) (end $x4 $y4)
         $linestyles{$_->[8]}
@@ -157,10 +161,8 @@ EOF
   } 
   #["TEXT","e313",908,160,0,"yyy","st4",0]
   foreach (grep {$_->[0] eq 'TEXT'} @$part) {
-    my $id=$_->[1];
-    my $style=$_->[6];
-    print  <<"EOF";
-      (text "$_->[5]" (at ${\($_->[2]*0.254)} ${\($_->[3]*0.254)} ${\($_->[4]*10)})
+     print  <<"EOF";
+      (text "${\($_->[5]=~s/\n/\\n/gr)}" (at ${\($_->[2]*0.254)} ${\($_->[3]*0.254)} ${\($_->[4]*10)})
         (effects $fonts{$_->[6]})
       )
 EOF
@@ -173,5 +175,5 @@ print  <<"EOF";
   )
 )
 EOF
-
 close STDOUT;
+print STDERR "Done with '$ofname'\n" unless $ofname eq '-';
