@@ -1,9 +1,9 @@
 # lcEDA2KiCAD
 Migrate data from LcEDA to KiCAD by perl scripts
 
-Script files is simple and short and useful. 
-Running without arguments will give some hints.
-Only symbols are supported to be convert now. Footprints, schematics and PCB are not supported (I think that footprints are already almost all standardized, and automatic migration will not be good for latter two). 
+Only symbols/schematics are supported to be convert now.
+Note It can't be perfect.
+Footprints, and PCB are not supported.
 
 ## elib2efoos.pl
 This script extracts all footprints from .elib .eprj file, to .efoo files (one file per footprint).
@@ -39,4 +39,4 @@ This script merges multiple .kicad_sym file (with one symbol in it) to a single 
 3. A directory "xxx" is created, which contains useful files, including schematics files, for example, "yyy.esch".
 4. Make sure esym2kicad.pl is in current directory too, or you can copy it there.
 5. perl esch2kicad.pl xxx\yyy.esch
-6. You got your "yyy.kicad_sch"
+6. You got your "yyy.kicad_sch", check it manually and carefully.
