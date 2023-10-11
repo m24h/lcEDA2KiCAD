@@ -3,7 +3,7 @@ die <<"EOF" if $#ARGV<0;
 Usage: perl $0 <.esch file name> <output filename or - (STDOUT) or empty (use same name)>
 	This .esch file depends on devices.json and .esym .ersc files, which are extracted by eprj2dir.pl.
 	Therefore, those files should be kept in the same directory as .esch file when using this script.
-	Also, esym2kicad.pl is needed/called, it should be put into search path or the same directory as this script.
+	Also, esym2kicad.pl is needed/called, it should be put into the same directory as this script.
 EOF
 my $dir=$ARGV[0]=~s/[^\\\/]*$//r;
 die "File '$ARGV[0]' is not found\n" unless open F, "<$ARGV[0]";
