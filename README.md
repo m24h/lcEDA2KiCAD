@@ -31,5 +31,12 @@ This script merges multiple .kicad_sym file (with one symbol in it) to a single 
 3. perl elib2esyms.pl yyy\lcedapro\resources\app\assets\db\lceda-std.elib
 4. for %f in (*.esym) do perl esym2kicad.pl %f
 5. perl mksymlib.pl mylib.kicad_sym *.kicad_sym
-6. You got you library "mylib.kicad_sym", but be careful not to put it in library repeatedly if you want to do step 5 again.
+6. You got your library "mylib.kicad_sym", but be careful not to put it in library repeatedly if you want to do step 5 again.
 
+## How to convert a lcEDA schematics to kiCAD in windows prompt :
+1. Get the .eprj file, for example, "xxx.eprj".
+2. perl eprj2dir.pl xxx.eprj
+3. A directory "xxx" is created, which contains useful files, including schematics files, for example, "yyy.esch".
+4. Make sure esym2kicad.pl is in current directory too, or you can copy it there.
+5. perl esch2kicad.pl xxx\yyy.esch
+6. You got your "yyy.kicad_sch"
