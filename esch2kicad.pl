@@ -3,7 +3,7 @@ die <<"EOF" if $#ARGV<0;
 Usage: perl $0 <.esch file name> <output filename or - (STDOUT) or empty (use same name)>
 	This .esch file depends on devices.json and .esym .ersc files, which are extracted by eprj2dir.pl.
 	Therefore, those files should be kept in the same directory as .esch file when using this script.
-	Also, esym2kicad.pl is needed, it should be in search path or the same directory as this script.
+	Also, esym2kicad.pl is needed/called, it should be put into search path or the same directory as this script.
 EOF
 my $dir=$ARGV[0]=~s/[^\\\/]*$//r;
 die "File '$ARGV[0]' is not found\n" unless open F, "<$ARGV[0]";
@@ -35,17 +35,17 @@ my $y_off=210.82;
 my $x_off=10.16;
 print <<"EOF";
 (kicad_sch (version 20230121) (generator esch2kicad_pl)
-  (paper "A4" )
   (title_block
     (title "${\($ofname=~s/\.[^\.]*$//r)}")
   )
 EOF
-my %symb;
 #["COMPONENT","e1271","AS4950.1",220,450,0,0,{},0]
 #["ATTR","e1272","e1271","Symbol","af05692b5f354941bea16089a587f2e8",0,0,null,null,0,"st6",0]
 #["ATTR","e1273","e1271","Designator","U6",0,1,185,480,0,"st6",0]
 #["ATTR","e1288","e1271","Name","={Manufacturer Part}",0,1,185,410,0,"st2",0]
 #["ATTR","e1290","e1271","Device","9dcbaa4973194913a7624491953f78c1",0,0,null,null,0,"st5",0]
+my %symb;
+my $pwrref=0;
 foreach (grep {$_->[0] eq 'COMPONENT'} @$sch) {
   my $id=$_->[1];
   my $unit=($_->[2]=~/\.(\d+)\s*$/)?$1:'1';
@@ -54,16 +54,97 @@ foreach (grep {$_->[0] eq 'COMPONENT'} @$sch) {
   my $refer=(grep {$_->[0] eq 'ATTR' && $_->[3] eq 'Designator' && $_->[2] eq $id} @$sch)[0];
   my $device=(map {$dev->{$_->[4]}} grep {$_->[0] eq 'ATTR' && $_->[3] eq 'Device' && $_->[2] eq $id} @$sch)[0];
   my $name=(grep {$_->[0] eq 'ATTR' && $_->[3] eq 'Name' && $_->[2] eq $id} @$sch)[0];
+  # default fake components
+  if ($device->{'Page Size'}) { # a sheet
+    print<<"EOF";
+    (paper "$device->{'Page Size'}" )
+EOF
+    next;
+  } elsif ($device->{'Name'} eq 'GND' || $device->{'Global Net Name'} eq 'GND') {
+    print<<"EOF";
+  (symbol (lib_id "power:GND") (at ${\($x_off+$_->[3]*0.254)} ${\($y_off-$_->[4]*0.254)} $_->[5]) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (property "Reference" "#PWR0${\(++$pwrref)}"
+      (effects hide)
+    )
+    (property "Value" "GND" (at ${\($x_off+$_->[3]*0.254+3.81*sin($_->[5]/180*3.14159265897935))} ${\($y_off-$_->[4]*0.254+3.81*cos($_->[5]/180*3.14159265897935))} 0)
+    )
+  )
+EOF
+    next;
+  } elsif ($device->{'Name'} eq 'AGND' || $device->{'Global Net Name'} eq 'AGND') {
+    print<<"EOF";
+  (symbol (lib_id "power:GNDA") (at ${\($x_off+$_->[3]*0.254)} ${\($y_off-$_->[4]*0.254)} $_->[5]) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (property "Reference" "#PWR0${\(++$pwrref)}"
+      (effects hide)
+    )
+    (property "Value" "GNDA" (at ${\($x_off+$_->[3]*0.254+3.81*sin($_->[5]/180*3.14159265897935))} ${\($y_off-$_->[4]*0.254+3.81*cos($_->[5]/180*3.14159265897935))} 0)
+    )
+  ) 
+EOF
+    next;
+  }  elsif ($device->{'Name'} eq 'VCC' || $device->{'Global Net Name'} eq 'VCC') {
+    print<<"EOF";
+  (symbol (lib_id "power:VCC") (at ${\($x_off+$_->[3]*0.254)} ${\($y_off-$_->[4]*0.254)} $_->[5]) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (property "Reference" "#PWR0${\(++$pwrref)}"
+      (effects hide)
+    )
+    (property "Value" "VCC" (at ${\($x_off+$_->[3]*0.254-3.81*sin($_->[5]/180*3.14159265897935))} ${\($y_off-$_->[4]*0.254-3.81*cos($_->[5]/180*3.14159265897935))} 0)
+    )
+  ) 
+EOF
+    next;
+  }  elsif ($device->{'Name'} eq '+5V' || $device->{'Global Net Name'} eq '+5V') {
+    print<<"EOF";
+  (symbol (lib_id "power:+5V") (at ${\($x_off+$_->[3]*0.254)} ${\($y_off-$_->[4]*0.254)} $_->[5]) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (property "Reference" "#PWR0${\(++$pwrref)}"
+      (effects hide)
+    )
+    (property "Value" "+5V" (at ${\($x_off+$_->[3]*0.254-3.81*sin($_->[5]/180*3.14159265897935))} ${\($y_off-$_->[4]*0.254-3.81*cos($_->[5]/180*3.14159265897935))} 0)
+    )
+  ) 
+EOF
+    next;
+  }  elsif ($device->{'Name'} eq 'PGND' || $device->{'Global Net Name'} eq 'PGND') {
+    print<<"EOF";
+  (symbol (lib_id "power:GNDPWR") (at ${\($x_off+$_->[3]*0.254)} ${\($y_off-$_->[4]*0.254)} $_->[5]) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (property "Reference" "#PWR0${\(++$pwrref)}"
+      (effects hide)
+    )
+    (property "Value" "GNDPWR" (at ${\($x_off+$_->[3]*0.254+3.81*sin($_->[5]/180*3.14159265897935))} ${\($y_off-$_->[4]*0.254+3.81*cos($_->[5]/180*3.14159265897935))} 0)
+    )
+  ) 
+EOF
+    next;
+  } 
+  #not default power symbol
   unless (exists $symb{$symbol}) {
-    print STDERR "Load '${dir}$symbol.esym'\n";
-    next unless open F, "perl esym2kicad.pl ${dir}$symbol.esym - |";
-    my $t=join('',<F>);
-    close F;
     $symb{$symbol}={};
-    next unless $t=~/(\(\s*symbol\s+"([^"]+)"(.|\n)*?)(\s|\n)*\)[^\)]*$/i;
-    $symb{$symbol}={'name'=>$2, 'data'=>$1};
+    print STDERR "Load '${dir}$symbol.esym'\n";
+    if (open F, "perl esym2kicad.pl ${dir}$symbol.esym - |") {
+      my $t=join('',<F>);
+      close F;
+      $symb{$symbol}={'name'=>$2, 'data'=>$1} if $t=~/(\(\s*symbol\s+"([^"]+)"(.|\n)*?)(\s|\n)*\)[^\)]*$/i;
+    }
   }
-  next unless $symb{$symbol}->{'name'};
+  unless ($symb{$symbol}->{'name'}) { #unknown component
+    if ($name->[4]) {
+      print STDERR "Unknow symbol '$symbol' '$name->[4]', treat it as a global label\n";
+      print <<"EOF";
+  (global_label "$name->[4]" (shape input) (at ${\($x_off+$_->[3]*0.254)} ${\($y_off-$_->[4]*0.254)} $_->[5]) (fields_autoplaced)
+    (effects (justify left))
+    (property "Intersheetrefs" "${INTERSHEET_REFS}"
+      (effects hide)
+    )
+  )
+EOF
+    }
+    next;   
+  }
   print <<"EOF";
   (symbol (lib_id "$symb{$symbol}->{'name'}") (at ${\($x_off+$_->[3]*0.254)} ${\($y_off-$_->[4]*0.254)} $_->[5]) (unit $unit)
     (in_bom yes) (on_board yes) (dnp no)
@@ -92,6 +173,276 @@ EOF
 #symbol lib
 print  <<"EOF";
   (lib_symbols
+    (symbol "power:GND" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 -6.35 0)
+        (effects hide)
+      )
+      (property "Value" "GND" (at 0 -3.81 0)
+      )
+      (property "Footprint" "" (at 0 0 0)
+        (effects hide)
+      )
+      (property "Datasheet" "" (at 0 0 0)
+        (effects hide)
+      )
+      (property "ki_keywords" "global power" (at 0 0 0)
+        (effects hide)
+      )
+      (property "ki_description" "Power symbol creates a global label with name \\"GND\\" , ground" (at 0 0 0)
+        (effects hide)
+      )
+      (symbol "GND_0_1"
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 -1.27)
+            (xy 1.27 -1.27)
+            (xy 0 -2.54)
+            (xy -1.27 -1.27)
+            (xy 0 -1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+      )
+      (symbol "GND_1_1"
+        (pin power_in line (at 0 0 270) (length 0) hide
+          (name "GND")
+          (number "1")
+        )
+      )
+    )
+    (symbol "power:+5V" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 -3.81 0)
+        (effects hide)
+      )
+      (property "Value" "+5V" (at 0 3.556 0)
+      )
+      (property "Footprint" "" (at 0 0 0)
+        (effects hide)
+      )
+      (property "Datasheet" "" (at 0 0 0)
+        (effects hide)
+      )
+      (property "ki_keywords" "global power" (at 0 0 0)
+        (effects hide)
+      )
+      (property "ki_description" "Power symbol creates a global label with name \\"+5V\\"" (at 0 0 0)
+        (effects hide)
+      )
+      (symbol "+5V_0_1"
+        (polyline
+          (pts
+            (xy -0.762 1.27)
+            (xy 0 2.54)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 2.54)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy 0 2.54)
+            (xy 0.762 1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+      )
+      (symbol "+5V_1_1"
+        (pin power_in line (at 0 0 90) (length 0) hide
+          (name "+5V")
+          (number "1")
+        )
+      )
+    ) 
+    (symbol "power:GNDA" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 -6.35 0)
+        (effects hide)
+      )
+      (property "Value" "GNDA" (at 0 -3.81 0)
+      )
+      (property "Footprint" "" (at 0 0 0)
+        (effects hide)
+      )
+      (property "Datasheet" "" (at 0 0 0)
+        (effects hide)
+      )
+      (property "ki_keywords" "global power" (at 0 0 0)
+        (effects hide)
+      )
+      (property "ki_description" "Power symbol creates a global label with name \\"GNDA\\" , analog ground" (at 0 0 0)
+        (effects hide)
+      )
+      (symbol "GNDA_0_1"
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 -1.27)
+            (xy 1.27 -1.27)
+            (xy 0 -2.54)
+            (xy -1.27 -1.27)
+            (xy 0 -1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+      )
+      (symbol "GNDA_1_1"
+        (pin power_in line (at 0 0 270) (length 0) hide
+          (name "GNDA")
+          (number "1")
+        )
+      )
+    )
+    (symbol "power:GNDPWR" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 -5.08 0)
+        (effects hide)
+      )
+      (property "Value" "GNDPWR" (at 0 -3.302 0)
+      )
+      (property "Footprint" "" (at 0 -1.27 0)
+        (effects hide)
+      )
+      (property "Datasheet" "" (at 0 -1.27 0)
+        (effects hide)
+      )
+      (property "ki_keywords" "global ground" (at 0 0 0)
+        (effects hide)
+      )
+      (property "ki_description" "Power symbol creates a global label with name \\"GNDPWR\\" , global ground" (at 0 0 0)
+        (effects hide)
+      )
+      (symbol "GNDPWR_0_1"
+        (polyline
+          (pts
+            (xy 0 -1.27)
+            (xy 0 0)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy -1.016 -1.27)
+            (xy -1.27 -2.032)
+            (xy -1.27 -2.032)
+          )
+          (stroke (width 0.2032) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy -0.508 -1.27)
+            (xy -0.762 -2.032)
+            (xy -0.762 -2.032)
+          )
+          (stroke (width 0.2032) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy 0 -1.27)
+            (xy -0.254 -2.032)
+            (xy -0.254 -2.032)
+          )
+          (stroke (width 0.2032) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy 0.508 -1.27)
+            (xy 0.254 -2.032)
+            (xy 0.254 -2.032)
+          )
+          (stroke (width 0.2032) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy 1.016 -1.27)
+            (xy -1.016 -1.27)
+            (xy -1.016 -1.27)
+          )
+          (stroke (width 0.2032) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy 1.016 -1.27)
+            (xy 0.762 -2.032)
+            (xy 0.762 -2.032)
+            (xy 0.762 -2.032)
+          )
+          (stroke (width 0.2032) (type default))
+          (fill (type none))
+        )
+      )
+      (symbol "GNDPWR_1_1"
+        (pin power_in line (at 0 0 270) (length 0) hide
+          (name "GNDPWR")
+          (number "1")
+        )
+      )
+    )
+    (symbol "power:VCC" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 -3.81 0)
+        (effects hide)
+      )
+      (property "Value" "VCC" (at 0 3.81 0)
+      )
+      (property "Footprint" "" (at 0 0 0)
+        (effects hide)
+      )
+      (property "Datasheet" "" (at 0 0 0)
+        (effects hide)
+      )
+      (property "ki_keywords" "global power" (at 0 0 0)
+        (effects hide)
+      )
+      (property "ki_description" "Power symbol creates a global label with name \\"VCC\\"" (at 0 0 0)
+        (effects hide)
+      )
+      (symbol "VCC_0_1"
+        (polyline
+          (pts
+            (xy -0.762 1.27)
+            (xy 0 2.54)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 2.54)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy 0 2.54)
+            (xy 0.762 1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+      )
+      (symbol "VCC_1_1"
+        (pin power_in line (at 0 0 90) (length 0) hide
+          (name "VCC")
+          (number "1")
+        )
+      )
+    )      
 EOF
 print "    $_->{'data'}\n" foreach (values %symb);
 print  <<"EOF";
@@ -130,7 +481,7 @@ EOF
 #["ATTR","e1800","e1628","NET","AP",0,1,125,440,0,"st2",0]
 #["ATTR","e6225","e3677","NET","ALARM",0,1,1025,430,90,"st2",0]
 foreach (grep {$_->[0] eq 'ATTR' && $_->[3] eq 'NET'} @$sch) {
-  print <<"EOF";
+  print <<"EOF" unless ($_->[4] eq 'GND' || $_->[4] eq 'AGND' || $_->[4] eq 'PGND' || $_->[4] eq 'VCC' || $_->[4] eq '+5V');
   (label "$_->[4]" (at ${\($x_off+$_->[7]*0.254)} ${\($y_off-$_->[8]*0.254)} $_->[9]) (fields_autoplaced)
     (effects $fonts{$_->[10]})
   )

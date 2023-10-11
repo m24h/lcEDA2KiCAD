@@ -17,7 +17,7 @@ This script extracts Schematics/PCBs/Symbols/Footprints/Devices from a .eprj fil
 ## esch2kicad.pl
 This script converts LcEDA .esch file to kiCAD .kicad_sch file, it also need other files created by eprj2dir.pl.
 It's now experimental, still requires a lot of manual modifications for the final schematics.
-Some .esym files are reported not found, those are the fake components (GND/VCC ...) that are lacking, NET labels are leaved there instead.
+Maybe some .esym files are reported not found, those are the fake components (GND/VCC ...) that are lacking, I tried my best to restore them.
 
 ## esym2kicad.pl
 This script converts LcEDA .esym file to kiCAD .kicad_sym file, supports multi-units, rectangles, polylines, circles, arcs, texts, pins.
